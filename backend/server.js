@@ -5,22 +5,26 @@ import dotenv from "dotenv";
 import fetchMgnregaData from "./fetchData.js";
 import pkg from "pg";
 import path from "path";
+import { fileURLToPath } from "url";
 
 const { Pool } = pkg;
 dotenv.config();
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// PostgreSQL pool
+// -------------------- PostgreSQL Setup -------------------- //
 const pool = new Pool({
   connectionString: process.env.DB_URL,
   ssl: { rejectUnauthorized: false }, // required for NeonDB
 });
 
-// Test PostgreSQL connection
+// Test connection
 (async () => {
   try {
     const client = await pool.connect();
@@ -37,13 +41,14 @@ const pool = new Pool({
 app.get("/api/mgnrega/fetch", async (req, res) => {
   try {
     const records = await fetchMgnregaData();
-    if (records.length === 0) return res.json({ message: "No data found" });
+    if (!records || records.length === 0)
+      return res.json({ message: "No data found" });
 
     const insertQuery = `
       INSERT INTO mgnrega_data 
-      (fin_year, month, state_code, state_name, district_code, district_name, 
-       Approved_Labour_Budget, Average_Wage_rate_per_day_per_person, 
-       Total_Households_Worked, Total_Individuals_Worked)
+        (fin_year, month, state_code, state_name, district_code, district_name, 
+         Approved_Labour_Budget, Average_Wage_rate_per_day_per_person, 
+         Total_Households_Worked, Total_Individuals_Worked)
       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
       ON CONFLICT (district_code, month, fin_year) DO UPDATE
       SET 
@@ -53,24 +58,33 @@ app.get("/api/mgnrega/fetch", async (req, res) => {
         Total_Individuals_Worked = EXCLUDED.Total_Individuals_Worked;
     `;
 
-    // Insert each record one by one (PostgreSQL parameterized)
-    for (let r of records) {
-      const values = [
-        r.fin_year,
-        r.month,
-        r.state_code,
-        r.state_name,
-        r.district_code,
-        r.district_name,
-        r.Approved_Labour_Budget || 0,
-        r.Average_Wage_rate_per_day_per_person || 0,
-        r.Total_Households_Worked || 0,
-        r.Total_Individuals_Worked || 0,
-      ];
-      await pool.query(insertQuery, values);
+    // Insert all records in a transaction for performance
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+      for (let r of records) {
+        const values = [
+          r.fin_year,
+          r.month,
+          r.state_code,
+          r.state_name,
+          r.district_code,
+          r.district_name,
+          r.Approved_Labour_Budget || 0,
+          r.Average_Wage_rate_per_day_per_person || 0,
+          r.Total_Households_Worked || 0,
+          r.Total_Individuals_Worked || 0,
+        ];
+        await client.query(insertQuery, values);
+      }
+      await client.query("COMMIT");
+      res.json({ message: `${records.length} rows inserted/updated.` });
+    } catch (err) {
+      await client.query("ROLLBACK");
+      throw err;
+    } finally {
+      client.release();
     }
-
-    res.json({ message: `${records.length} rows inserted/updated.` });
   } catch (err) {
     console.error("Insert Error:", err.message);
     res.status(500).json({ error: "Database insert failed" });
@@ -106,7 +120,7 @@ app.get("/api/mgnrega", async (req, res) => {
   }
 });
 
-// Get distinct district names
+// Get distinct districts
 app.get("/api/mgnrega/districts", async (req, res) => {
   try {
     const { rows } = await pool.query(
@@ -120,7 +134,6 @@ app.get("/api/mgnrega/districts", async (req, res) => {
 });
 
 // -------------------- SERVE REACT FRONTEND -------------------- //
-const __dirname = path.resolve();
 app.use(express.static(path.join(__dirname, "client/build")));
 
 app.get("*", (req, res) => {

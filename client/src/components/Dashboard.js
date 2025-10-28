@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from "react";
 import axios from "axios";
-import "./Dashboard.css"; // ✅ Custom CSS file
+import "./Dashboard.css";
 
 const Dashboard = () => {
   const [data, setData] = useState([]);
@@ -13,7 +13,7 @@ const Dashboard = () => {
 
   const API_BASE = process.env.REACT_APP_API_BASE;
 
-  // ✅ Fetch all districts
+  // Fetch all districts
   const fetchDistricts = useCallback(async () => {
     try {
       const res = await axios.get(`${API_BASE}/api/mgnrega/districts`);
@@ -27,7 +27,7 @@ const Dashboard = () => {
     fetchDistricts();
   }, [fetchDistricts]);
 
-  // ✅ Fetch filtered data
+  // Fetch filtered data
   const fetchData = useCallback(async () => {
     try {
       const params = {};
@@ -36,7 +36,17 @@ const Dashboard = () => {
       if (selectedDistrict) params.district_name = selectedDistrict;
 
       const res = await axios.get(`${API_BASE}/api/mgnrega`, { params });
-      setData(res.data);
+      // Convert numeric fields from strings to numbers
+      const converted = res.data.map((row) => ({
+        ...row,
+        approved_labour_budget: Number(row.approved_labour_budget) || 0,
+        average_wage_rate_per_day_per_person: Number(
+          row.average_wage_rate_per_day_per_person
+        ) || 0,
+        total_households_worked: Number(row.total_households_worked) || 0,
+        total_individuals_worked: Number(row.total_individuals_worked) || 0,
+      }));
+      setData(converted);
     } catch (err) {
       console.error("Error fetching data:", err);
     }
@@ -46,7 +56,7 @@ const Dashboard = () => {
     fetchData();
   }, [fetchData]);
 
-  // ✅ Fetch latest data from backend API
+  // Fetch latest data from backend
   const fetchLatestData = async () => {
     setIsFetching(true);
     setFetchMessage("Fetching latest data...");
@@ -67,7 +77,7 @@ const Dashboard = () => {
     <div className="dashboard-container">
       <h1 className="dashboard-title">🌾 MGNREGA Performance Dashboard</h1>
 
-      {/* 🔹 Filters Section */}
+      {/* Filters */}
       <div className="filters">
         <div className="filter-item">
           <label>State</label>
@@ -115,7 +125,7 @@ const Dashboard = () => {
 
       {fetchMessage && <p className="fetch-message">{fetchMessage}</p>}
 
-      {/* 🔹 Summary Cards */}
+      {/* Summary Cards */}
       {data.length > 0 && (
         <div className="summary-cards">
           <div className="card">
@@ -123,7 +133,7 @@ const Dashboard = () => {
             <p>
               ₹
               {data
-                .reduce((sum, row) => sum + (row.Approved_Labour_Budget || 0), 0)
+                .reduce((sum, row) => sum + row.approved_labour_budget, 0)
                 .toLocaleString()}
             </p>
           </div>
@@ -133,7 +143,7 @@ const Dashboard = () => {
               ₹
               {(
                 data.reduce(
-                  (sum, row) => sum + (row.Average_Wage_rate_per_day_per_person || 0),
+                  (sum, row) => sum + row.average_wage_rate_per_day_per_person,
                   0
                 ) / data.length
               ).toFixed(2)}
@@ -143,7 +153,7 @@ const Dashboard = () => {
             <h3>Total Households Worked</h3>
             <p>
               {data
-                .reduce((sum, row) => sum + (row.Total_Households_Worked || 0), 0)
+                .reduce((sum, row) => sum + row.total_households_worked, 0)
                 .toLocaleString()}
             </p>
           </div>
@@ -151,14 +161,14 @@ const Dashboard = () => {
             <h3>Total Individuals Worked</h3>
             <p>
               {data
-                .reduce((sum, row) => sum + (row.Total_Individuals_Worked || 0), 0)
+                .reduce((sum, row) => sum + row.total_individuals_worked, 0)
                 .toLocaleString()}
             </p>
           </div>
         </div>
       )}
 
-      {/* 🔹 Data Table */}
+      {/* Data Table */}
       <div className="table-wrapper">
         <table className="data-table">
           <thead>
@@ -187,10 +197,10 @@ const Dashboard = () => {
                   <td>{row.month}</td>
                   <td>{row.state_name}</td>
                   <td>{row.district_name}</td>
-                  <td>{row.Approved_Labour_Budget}</td>
-                  <td>{row.Average_Wage_rate_per_day_per_person}</td>
-                  <td>{row.Total_Households_Worked}</td>
-                  <td>{row.Total_Individuals_Worked}</td>
+                  <td>{row.approved_labour_budget.toLocaleString()}</td>
+                  <td>{row.average_wage_rate_per_day_per_person.toFixed(2)}</td>
+                  <td>{row.total_households_worked.toLocaleString()}</td>
+                  <td>{row.total_individuals_worked.toLocaleString()}</td>
                 </tr>
               ))
             )}

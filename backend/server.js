@@ -4,6 +4,7 @@ import cors from "cors";
 import dotenv from "dotenv";
 import fetchMgnregaData from "./fetchData.js";
 import pkg from "pg";
+import path from "path";
 
 const { Pool } = pkg;
 dotenv.config();
@@ -16,24 +17,23 @@ app.use(express.urlencoded({ extended: true }));
 // PostgreSQL pool
 const pool = new Pool({
   connectionString: process.env.DB_URL,
-  ssl: { rejectUnauthorized: false },
+  ssl: { rejectUnauthorized: false }, // required for NeonDB
 });
 
-// Test connection
-try {
-  const client = await pool.connect();
-  console.log("✅ Connected to PostgreSQL (NeonDB)");
-  client.release();
-} catch (err) {
-  console.error("❌ PostgreSQL Connection Failed:", err.message);
-}
+// Test PostgreSQL connection
+(async () => {
+  try {
+    const client = await pool.connect();
+    console.log("✅ Connected to PostgreSQL (NeonDB)");
+    client.release();
+  } catch (err) {
+    console.error("❌ PostgreSQL Connection Failed:", err.message);
+  }
+})();
 
-// Root route
-app.get("/", (req, res) => {
-  res.send("✅ MGNREGA API Server Running");
-});
+// -------------------- API ROUTES -------------------- //
 
-// Fetch & save latest data
+// Fetch & save latest data from MGNREGA API
 app.get("/api/mgnrega/fetch", async (req, res) => {
   try {
     const records = await fetchMgnregaData();
@@ -77,7 +77,7 @@ app.get("/api/mgnrega/fetch", async (req, res) => {
   }
 });
 
-// Get data with optional filters
+// Fetch MGNREGA data with optional filters
 app.get("/api/mgnrega", async (req, res) => {
   try {
     const { state_name, fin_year, district_name } = req.query;
@@ -119,6 +119,14 @@ app.get("/api/mgnrega/districts", async (req, res) => {
   }
 });
 
-// Start server
+// -------------------- SERVE REACT FRONTEND -------------------- //
+const __dirname = path.resolve();
+app.use(express.static(path.join(__dirname, "client/build")));
+
+app.get("*", (req, res) => {
+  res.sendFile(path.join(__dirname, "client/build", "index.html"));
+});
+
+// -------------------- START SERVER -------------------- //
 const PORT = process.env.PORT || 5002;
 app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));

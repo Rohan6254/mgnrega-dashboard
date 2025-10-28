@@ -1,3 +1,4 @@
+// server.js
 import express from "express";
 import mysql from "mysql2/promise";
 import cors from "cors";
@@ -11,25 +12,26 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// MySQL connection pool
+// Create MySQL pool
 const pool = mysql.createPool({
   host: process.env.MYSQL_HOST,
   user: process.env.MYSQL_USER,
   password: process.env.MYSQL_PASSWORD,
   database: process.env.MYSQL_DATABASE,
-  port: process.env.MYSQL_PORT || 3306,
+  port: process.env.MYSQL_PORT ? Number(process.env.MYSQL_PORT) : 3306,
   waitForConnections: true,
   connectionLimit: 10,
-  queueLimit: 0,
+  queueLimit: 0
 });
 
 // Test connection
-pool.getConnection()
-  .then(conn => {
-    console.log("✅ Connected to MySQL (Railway)");
-    conn.release();
-  })
-  .catch(err => console.error("❌ MySQL Connection Failed:", err));
+try {
+  const conn = await pool.getConnection();
+  console.log("✅ Connected to MySQL (Railway)");
+  conn.release();
+} catch (err) {
+  console.error("❌ MySQL Connection Failed:", err.message);
+}
 
 // Root route
 app.get("/", (req, res) => {
@@ -118,5 +120,5 @@ app.get("/api/mgnrega/districts", async (req, res) => {
 });
 
 // Start server
-const PORT = process.env.PORT || 5005;
+const PORT = process.env.PORT || 5002;
 app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));

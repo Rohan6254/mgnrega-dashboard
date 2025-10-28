@@ -22,7 +22,7 @@ app.use(express.urlencoded({ extended: true }));
 // -------------------- PostgreSQL Setup -------------------- //
 const pool = new Pool({
   connectionString: process.env.DB_URL,
-  ssl: { rejectUnauthorized: false }, // required for NeonDB
+  ssl: { rejectUnauthorized: false },
 });
 
 // Test connection
@@ -42,8 +42,7 @@ const pool = new Pool({
 app.get("/api/mgnrega/fetch", async (req, res) => {
   try {
     const records = await fetchMgnregaData();
-    if (!records || records.length === 0)
-      return res.json({ message: "No data found" });
+    if (!records.length) return res.json({ message: "No data found" });
 
     const insertQuery = `
       INSERT INTO mgnrega_data 
@@ -62,7 +61,7 @@ app.get("/api/mgnrega/fetch", async (req, res) => {
     const client = await pool.connect();
     try {
       await client.query("BEGIN");
-      for (let r of records) {
+      for (const r of records) {
         const values = [
           r.fin_year,
           r.month,
@@ -78,6 +77,7 @@ app.get("/api/mgnrega/fetch", async (req, res) => {
         await client.query(insertQuery, values);
       }
       await client.query("COMMIT");
+      console.log(`✅ ${records.length} rows inserted/updated.`);
       res.json({ message: `${records.length} rows inserted/updated.` });
     } catch (err) {
       await client.query("ROLLBACK");
@@ -86,7 +86,7 @@ app.get("/api/mgnrega/fetch", async (req, res) => {
       client.release();
     }
   } catch (err) {
-    console.error("Insert Error:", err.message);
+    console.error("❌ Insert Error:", err.message);
     res.status(500).json({ error: "Database insert failed" });
   }
 });
@@ -115,7 +115,7 @@ app.get("/api/mgnrega", async (req, res) => {
     const { rows } = await pool.query(sql, params);
     res.json(rows);
   } catch (err) {
-    console.error("Query Error:", err.message);
+    console.error("❌ Query Error:", err.message);
     res.status(500).json({ error: "Database query failed" });
   }
 });
@@ -128,7 +128,7 @@ app.get("/api/mgnrega/districts", async (req, res) => {
     );
     res.json(rows);
   } catch (err) {
-    console.error("District fetch error:", err.message);
+    console.error("❌ District fetch error:", err.message);
     res.status(500).json({ error: "Error fetching districts" });
   }
 });
@@ -138,7 +138,6 @@ const buildPath = path.join(__dirname, "client/build");
 
 if (fs.existsSync(buildPath)) {
   app.use(express.static(buildPath));
-
   app.get("*", (req, res) => {
     res.sendFile(path.join(buildPath, "index.html"));
   });
@@ -147,6 +146,21 @@ if (fs.existsSync(buildPath)) {
     "⚠️ React build folder not found. Frontend will not be served. Run `npm run build` in client folder."
   );
 }
+
+// -------------------- OPTIONAL: Auto-fetch data on server start -------------------- //
+(async () => {
+  try {
+    console.log("⚡ Fetching latest MGNREGA data on server start...");
+    const records = await fetchMgnregaData();
+    if (records.length) {
+      console.log(`⚡ Fetched ${records.length} records.`);
+    } else {
+      console.log("⚡ No new records found.");
+    }
+  } catch (err) {
+    console.error("❌ Auto-fetch error:", err.message);
+  }
+})();
 
 // -------------------- START SERVER -------------------- //
 const PORT = process.env.PORT || 5002;

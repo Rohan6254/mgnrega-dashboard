@@ -5,6 +5,7 @@ import dotenv from "dotenv";
 import fetchMgnregaData from "./fetchData.js";
 import pkg from "pg";
 import path from "path";
+import fs from "fs";
 import { fileURLToPath } from "url";
 
 const { Pool } = pkg;
@@ -58,7 +59,6 @@ app.get("/api/mgnrega/fetch", async (req, res) => {
         Total_Individuals_Worked = EXCLUDED.Total_Individuals_Worked;
     `;
 
-    // Insert all records in a transaction for performance
     const client = await pool.connect();
     try {
       await client.query("BEGIN");
@@ -134,11 +134,19 @@ app.get("/api/mgnrega/districts", async (req, res) => {
 });
 
 // -------------------- SERVE REACT FRONTEND -------------------- //
-app.use(express.static(path.join(__dirname, "client/build")));
+const buildPath = path.join(__dirname, "client/build");
 
-app.get("*", (req, res) => {
-  res.sendFile(path.join(__dirname, "client/build", "index.html"));
-});
+if (fs.existsSync(buildPath)) {
+  app.use(express.static(buildPath));
+
+  app.get("*", (req, res) => {
+    res.sendFile(path.join(buildPath, "index.html"));
+  });
+} else {
+  console.warn(
+    "⚠️ React build folder not found. Frontend will not be served. Run `npm run build` in client folder."
+  );
+}
 
 // -------------------- START SERVER -------------------- //
 const PORT = process.env.PORT || 5002;

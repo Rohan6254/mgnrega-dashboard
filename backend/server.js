@@ -42,6 +42,7 @@ const pool = new Pool({
 app.get("/api/mgnrega/fetch", async (req, res) => {
   try {
     const records = await fetchMgnregaData();
+    console.log(records); 
     if (!records.length) return res.json({ message: "No data found" });
 
     const insertQuery = `
@@ -62,18 +63,20 @@ app.get("/api/mgnrega/fetch", async (req, res) => {
     try {
       await client.query("BEGIN");
       for (const r of records) {
-        const values = [
-          r.fin_year,
-          r.month,
-          r.state_code,
-          r.state_name,
-          r.district_code,
-          r.district_name,
-          r.Approved_Labour_Budget || 0,
-          r.Average_Wage_rate_per_day_per_person || 0,
-          r.Total_Households_Worked || 0,
-          r.Total_Individuals_Worked || 0,
-        ];
+      const values = [
+        r.fin_year,
+        r.month,
+        r.state_code,
+        r.state_name,
+        r.district_code,
+        r.district_name,
+        Number(r.Approved_Labour_Budget) || 0,
+        Number(r.Average_Wage_rate_per_day_per_person) || 0,
+        Number(r.Total_Households_Worked) || 0,
+        Number(r.Total_Individuals_Worked) || 0,
+      ];
+
+
         await client.query(insertQuery, values);
       }
       await client.query("COMMIT");
@@ -134,10 +137,12 @@ app.get("/api/mgnrega/districts", async (req, res) => {
 });
 
 // -------------------- SERVE REACT FRONTEND -------------------- //
-const buildPath = path.join(__dirname, "client/build");
+const buildPath = path.join(__dirname, "../client/build");
 
 if (fs.existsSync(buildPath)) {
   app.use(express.static(buildPath));
+
+  // catch-all for React routing
   app.get("*", (req, res) => {
     res.sendFile(path.join(buildPath, "index.html"));
   });

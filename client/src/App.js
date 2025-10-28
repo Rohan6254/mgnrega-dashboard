@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import "./App.css";
 import Dashboard from "./components/Dashboard";
 
@@ -12,8 +12,8 @@ function App() {
 
   const API_BASE = process.env.REACT_APP_API_BASE; // Use Render backend URL
 
-  // ✅ Fetch table data
-  const fetchData = async () => {
+  // ✅ Fetch table data (useCallback ensures stable reference for useEffect)
+  const fetchData = useCallback(async () => {
     setLoading(true);
     try {
       let url = `${API_BASE}/api/mgnrega`;
@@ -30,7 +30,7 @@ function App() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [API_BASE, stateName, finYear]);
 
   // ✅ Fetch latest data from backend API
   const fetchLatestData = async () => {
@@ -40,7 +40,7 @@ function App() {
       const res = await fetch(`${API_BASE}/api/mgnrega/fetch`);
       const result = await res.json();
       setFetchMessage(result.message || "✅ Data fetched successfully!");
-      await fetchData();
+      await fetchData(); // refresh table after fetch
     } catch (err) {
       console.error(err);
       setFetchMessage("❌ Error fetching latest data");
@@ -50,9 +50,10 @@ function App() {
     }
   };
 
+  // Run fetchData on component mount
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [fetchData]);
 
   return (
     <div className="app-container">

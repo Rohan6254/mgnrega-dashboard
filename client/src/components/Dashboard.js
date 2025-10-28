@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import axios from "axios";
 import "./Dashboard.css"; // ✅ Custom CSS file
 
@@ -11,40 +11,47 @@ const Dashboard = () => {
   const [isFetching, setIsFetching] = useState(false);
   const [fetchMessage, setFetchMessage] = useState("");
 
+  const API_BASE = process.env.REACT_APP_API_BASE;
+
   // ✅ Fetch all districts
+  const fetchDistricts = useCallback(async () => {
+    try {
+      const res = await axios.get(`${API_BASE}/api/mgnrega/districts`);
+      setDistricts(res.data);
+    } catch (err) {
+      console.error("Error fetching districts:", err);
+    }
+  }, [API_BASE]);
+
   useEffect(() => {
-    const fetchDistricts = async () => {
-      try {
-        const res = await axios.get("http://localhost:8080/api/mgnrega/districts");
-        setDistricts(res.data);
-      } catch (err) {
-        console.error("Error fetching districts:", err);
-      }
-    };
     fetchDistricts();
-  }, []);
+  }, [fetchDistricts]);
 
   // ✅ Fetch filtered data
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     try {
       const params = {};
       if (stateFilter) params.state_name = stateFilter;
       if (yearFilter) params.fin_year = yearFilter;
       if (selectedDistrict) params.district_name = selectedDistrict;
 
-      const res = await axios.get("http://localhost:8080/api/mgnrega", { params });
+      const res = await axios.get(`${API_BASE}/api/mgnrega`, { params });
       setData(res.data);
     } catch (err) {
       console.error("Error fetching data:", err);
     }
-  };
+  }, [API_BASE, stateFilter, yearFilter, selectedDistrict]);
 
-  // ✅ Fetch latest data from API
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  // ✅ Fetch latest data from backend API
   const fetchLatestData = async () => {
     setIsFetching(true);
     setFetchMessage("Fetching latest data...");
     try {
-      const res = await axios.get("http://localhost:8080/api/mgnrega/fetch");
+      const res = await axios.get(`${API_BASE}/api/mgnrega/fetch`);
       setFetchMessage(res.data.message || "Latest data fetched successfully!");
       await fetchData();
     } catch (err) {
@@ -55,10 +62,6 @@ const Dashboard = () => {
       setTimeout(() => setFetchMessage(""), 3000);
     }
   };
-
-  useEffect(() => {
-    fetchData();
-  }, [stateFilter, yearFilter, selectedDistrict]);
 
   return (
     <div className="dashboard-container">

@@ -1,17 +1,16 @@
 import axios from "axios";
 import dotenv from "dotenv";
 
-dotenv.config(); 
+dotenv.config();
 
 export default async function fetchMgnregaData() {
   try {
-    const url = "https://api.data.gov.in/resource/ee03643a-ee4c-48c2-ac30-9f2ff26ab722?format=json&api-key=YOUR_API_KEY";
+    const url = `${process.env.MGNREGA_API_URL}&api-key=${process.env.MGNREGA_API_KEY}`;
     const response = await axios.get(url);
 
     if (!response.data || !response.data.records) return [];
 
-    const records = response.data.records;
-    return records.map((item) => ({
+    return response.data.records.map(item => ({
       fin_year: item.fin_year || "",
       month: item.month || "",
       state_code: item.state_code || "",
@@ -24,7 +23,7 @@ export default async function fetchMgnregaData() {
       Total_Individuals_Worked: Number(item.Total_Individuals_Worked) || 0,
     }));
   } catch (err) {
-    console.error("Error fetching MGNREGA data:", err);
+    console.error("Error fetching MGNREGA data:", err.response?.data || err.message);
     return [];
   }
 }

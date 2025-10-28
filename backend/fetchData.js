@@ -1,6 +1,6 @@
 import axios from "axios";
 
-async function fetchMgnregaData() {
+export default async function fetchMgnregaData() {
   try {
     const url = "https://api.data.gov.in/resource/ee03643a-ee4c-48c2-ac30-9f2ff26ab722?format=json&api-key=YOUR_API_KEY";
     const response = await axios.get(url);
@@ -8,8 +8,7 @@ async function fetchMgnregaData() {
     if (!response.data || !response.data.records) return [];
 
     const records = response.data.records;
-
-    const formattedRecords = records.map((item) => ({
+    return records.map((item) => ({
       fin_year: item.fin_year || "",
       month: item.month || "",
       state_code: item.state_code || "",
@@ -21,13 +20,8 @@ async function fetchMgnregaData() {
       Total_Households_Worked: Number(item.Total_Households_Worked) || 0,
       Total_Individuals_Worked: Number(item.Total_Individuals_Worked) || 0,
     }));
-
-    return formattedRecords;
-
-  } catch (error) {
-    console.error("Error fetching MGNREGA data:", error);
+  } catch (err) {
+    console.error("Error fetching MGNREGA data:", err);
     return [];
   }
 }
-
-export default fetchMgnregaData;
